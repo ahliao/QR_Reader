@@ -1,9 +1,12 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <cv.h>
 #include <iostream>
+#include <zbar.h>
 
 using namespace cv;
 using namespace std;
+using namespace zbar;
 
 int main( int argc, char** argv )
 {
@@ -14,7 +17,9 @@ int main( int argc, char** argv )
     }
 
     Mat image;
-    image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
+    image = imread(argv[1], 0);   // Read the file
+	Mat image2;
+	cvtColor(image, image2, CV_GRAY2RGB);
 
     if(! image.data )                              // Check for invalid input
     {
@@ -22,9 +27,34 @@ int main( int argc, char** argv )
         return -1;
     }
 
+	int width = image.cols;
+	int height = image.rows;
+	uchar *raw = (uchar *)image.data;
+
+	Image img(width, height, "Y800", raw, width * height);
+
+	zbar::ImageScanner scanner;
+	scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
+
+	int n = scanner.scan(img);
+	cout << "n = " << n << endl;
+
+	 // extract results
+	for(Image::SymbolIterator symbol = img.symbol_begin();
+		symbol != img.symbol_end();
+		++symbol) {
+		// do something useful with results
+		cout << "decoded " << symbol->get_type_name()
+			 << " symbol \"" << symbol->get_data() << '"' << endl;
+	}
+
     namedWindow( "James", WINDOW_NORMAL );// Create a window for display.
     imshow( "James", image );                   // Show our image inside it.
 
-    waitKey(0);                                          // Wait for a keystroke in the window
+    waitKey(0);                          // Wait for a keystroke in the window
+
+	// Clean up
+	img.set_data(NULL, 0);
+
     return 0;
 }
