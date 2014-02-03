@@ -62,8 +62,8 @@ int main( int argc, char** argv )
 		cout<<"Angle: "<<r.angle<<endl;  
 	}
 
-    namedWindow( "James", WINDOW_NORMAL );// Create a window for display.
-    imshow( "James", image2 );                   // Show our image inside it.
+    namedWindow( "Test", WINDOW_NORMAL );// Create a window for display.
+    imshow( "Test", image2 );                   // Show our image inside it.
 
     waitKey(0);                          // Wait for a keystroke in the window
 
