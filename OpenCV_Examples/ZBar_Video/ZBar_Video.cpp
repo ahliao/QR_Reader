@@ -1,74 +1,49 @@
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <cv.h>
+// Test program to read qr codes from video
 #include <iostream>
 #include <zbar.h>
 
-using namespace cv;
 using namespace std;
 using namespace zbar;
 
+// Currently using C++ as it's easier, C is also possible though
+class MyHandler : public Image::Handler
+{
+	void image_callback(Image &image) 
+	{
+		
+		/*for(SymbolIterator symbol = image.symbol_begin(); 
+				symbol != image.symbol_end();
+				++symbol)*/
+		SymbolIterator symbol = image.symbol_begin();
+		if (symbol != image.symbol_end())
+		{
+			//cout << "decoded " << symbol->get_type_name() << " symbol "
+			//	<< "\"" << symbol->get_data() << "\"" << endl;
+			cout << "I see something" << endl;
+		}
+	}
+};
+
 int main( int argc, char** argv )
 {
-    if( argc != 2)
-    {
-     cout <<" Usage: display_image ImageToLoadAndDisplay" << endl;
-     return -1;
-    }
+	// create a Processor
+	const char *device = "/dev/video0";
+	if (argc > 1)
+		device = argv[1];
+	Processor proc(true, device);
 
-    Mat image;
-    image = imread(argv[1], 0);   // Read the file
-	Mat image2;
-	cvtColor(image, image2, CV_GRAY2RGB);
+	proc.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
 
-    if(! image.data )                              // Check for invalid input
-    {
-        cout <<  "Could not open or find the image" << std::endl ;
-        return -1;
-    }
+	MyHandler my_handler;
+	proc.set_handler(my_handler);
 
-	int width = image.cols;
-	int height = image.rows;
-	uchar *raw = (uchar *)image.data;
+	proc.set_visible();
+	proc.set_active();
 
-	Image img(width, height, "Y800", raw, width * height);
-
-	zbar::ImageScanner scanner;
-	scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
-
-	int n = scanner.scan(img);
-	cout << "n = " << n << endl;
-
-	 // extract results
-	for(Image::SymbolIterator symbol = img.symbol_begin();
-		symbol != img.symbol_end();
-		++symbol) {
-		// do something useful with results
-		cout << "decoded " << symbol->get_type_name()
-			 << " symbol \"" << symbol->get_data() << '"' << endl;
-
-
-		vector<Point> vp;
-		int s = symbol->get_location_size();  
-		for(int i=0;i<s;i++){  
-			vp.push_back(Point(symbol->get_location_x(i),symbol->get_location_y(i))); 
-		}  
-		RotatedRect r = minAreaRect(vp);  
-		Point2f pts[4];  
-		r.points(pts);  
-		for(int i=0;i<4;i++){  
-			line(image2,pts[i],pts[(i+1)%4],Scalar(255,255,0),5);  
-		}  
-		cout<<"Angle: "<<r.angle<<endl;  
+	try {
+		proc.user_wait();
+	} catch(ClosedError &e) { 
 	}
-
-    namedWindow( "James", WINDOW_NORMAL );// Create a window for display.
-    imshow( "James", image2 );                   // Show our image inside it.
-
-    waitKey(0);                          // Wait for a keystroke in the window
-
-	// Clean up
-	img.set_data(NULL, 0);
 
     return 0;
 }
