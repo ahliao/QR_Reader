@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 	capture.set(CV_CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT);
 
 	// Infinite loop where our scanning is down on each camera frame
-	//while (1) 
+	while (1) 
 	{
 		// store image to our matrix
 		capture.read(cameraFeed);
@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 		cv::imshow(windowName, cameraFeed);
 
 		// Delay so screen can refresh
-		//if ((char) cv::waitKey(30) == 27) break;
+		if ((char) cv::waitKey(30) == 27) break;
 	}
 
 	cvDestroyAllWindows();

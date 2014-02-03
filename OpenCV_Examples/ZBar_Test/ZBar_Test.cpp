@@ -46,10 +46,24 @@ int main( int argc, char** argv )
 		// do something useful with results
 		cout << "decoded " << symbol->get_type_name()
 			 << " symbol \"" << symbol->get_data() << '"' << endl;
+
+
+		vector<Point> vp;
+		int s = symbol->get_location_size();  
+		for(int i=0;i<s;i++){  
+			vp.push_back(Point(symbol->get_location_x(i),symbol->get_location_y(i))); 
+		}  
+		RotatedRect r = minAreaRect(vp);  
+		Point2f pts[4];  
+		r.points(pts);  
+		for(int i=0;i<4;i++){  
+			line(image2,pts[i],pts[(i+1)%4],Scalar(255,255,0),5);  
+		}  
+		cout<<"Angle: "<<r.angle<<endl;  
 	}
 
     namedWindow( "James", WINDOW_NORMAL );// Create a window for display.
-    imshow( "James", image );                   // Show our image inside it.
+    imshow( "James", image2 );                   // Show our image inside it.
 
     waitKey(0);                          // Wait for a keystroke in the window
 
