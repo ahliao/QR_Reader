@@ -1,5 +1,12 @@
 # Ignore the executable
 QR_Reader
+detect
+hue
+track
+objectTrack
+tut1
+ZBar_Test
+ZBar_Video
 
 # Vim temp files
 *~
