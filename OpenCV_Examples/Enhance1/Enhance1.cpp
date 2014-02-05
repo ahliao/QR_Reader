@@ -8,36 +8,31 @@ using namespace cv;
 using namespace std;
 using namespace zbar;
 
-int main( int argc, char** argv )
+// REQUIRES: inputImg is a Mat in RGB
+// MODIFIES: thres becomes a binary of the inputImg 
+//			 with threshold around the QR codes
+void thresholdMorph(Mat &inputImg, Mat &threshold);
+
+// REQUIRES: threshold is a binary Mat
+// MODIFIES: stores the position and length in
+//			 x, y, and length
+void findObjects(int &x, int &y, int &length, const Mat &threshold);
+
+// REQUIRES: 
+// MODIFIES: crop becomes the cropped image from "image"
+void cropAroundObject(const int &x, const int &y, const int &length, 
+		const Mat &image, Mat &crop);
+
+void thresholdMorph(Mat &inputImg, Mat &threshold) 
 {
-    if( argc != 2)
-    {
-     cout <<" Usage: display_image ImageToLoadAndDisplay" << endl;
-     return -1;
-    }
+	// TODO: add an assert to make sure inputImg is RGB
 
-    Mat image;
-    image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
-	Mat outImg = image;
-
-    if(! image.data )                              // Check for invalid input
-    {
-        cout <<  "Could not open or find the image" << std::endl ;
-        return -1;
-    }
-
-	// Do the enhancements on the input image
-
-	// TODO: put these all into seperate functions
-	
-	// Find where each QR code is located and do a crop of that
-	Mat enhancedimg;
 	// Start with creating a binary to find the black parts
-	Mat enhancedHSV;
-	Mat threshold;
+	Mat HSV;
 	// convert to get HSV
-	cvtColor(image, enhancedHSV, CV_RGB2HSV);
-	inRange(enhancedHSV, Scalar(0, 0, 0), Scalar(10, 10, 10), threshold);
+	cvtColor(inputImg, HSV, CV_RGB2HSV);
+	// TODO: Make the range const so easier to change
+	inRange(HSV, Scalar(0, 0, 0), Scalar(10, 10, 10), threshold);
 
 	// Get rid of noise
 	Mat erodeElement = getStructuringElement( MORPH_RECT, Size(1,1));
@@ -48,12 +43,14 @@ int main( int argc, char** argv )
 	
 	// dilate to enlarge the wanted parts
 	dilate(threshold, threshold, dilateElement);
+}
 
+void findObjects(int &x, int &y, int &length, const Mat &threshold)
+{
 	// find the x and y coordinates
 	// find the moment
-	Mat temp;
+	Mat temp;	// needed as findContours modifies the input Mat
 	threshold.copyTo(temp);
-	int qr_x, qr_y, qr_sideLength;
 	double area;
 
 	// needed for the findContours()
@@ -75,48 +72,74 @@ int main( int argc, char** argv )
 	
 				// We need to tune these
 				if (area > 10 && area < 10000 && area > refArea) {
-					qr_x = moment.m10/area;
-					qr_y = moment.m01/area;
+					x = moment.m10/area;
+					y = moment.m01/area;
 					objectFound = true;
 					refArea = area;
 				} 
 			}
 			if (objectFound == true) {
-				cout << "Found at (" << qr_x << ", " << qr_y << ")" << endl;
+				cout << "Found at (" << x << ", " << y << ")" << endl;
 				cout << "Area: " << refArea << endl;
-				// Saying that area/5 is about the width atm
-				qr_sideLength = refArea / 5;
-				cout << "Side Length: " << qr_sideLength << endl;
+				length = refArea / 5;
+				cout << "Side Length: " << length << endl;
 			} else cout << "not found" << endl;
 		}
 	}
+}
 
+void cropAroundObject(const int &x, const int &y, const int &length, 
+		const Mat &image, Mat &crop) 
+{
 	// Crop the image to a general area around the located code
 	// Do some checking of our cropping rect
-	// TODO: add check to make sure we actually found the code
 	int crop_x, crop_y, crop_width, crop_height;
-	crop_x = qr_x - qr_sideLength / 2;
-	crop_y = qr_y - qr_sideLength / 2;
-	crop_width = qr_sideLength;
-	crop_height = qr_sideLength;
+	crop_x = x - length / 2;
+	crop_y = y - length / 2;
+	crop_width = length;
+	crop_height = length;
 	if (crop_x < 1) crop_x = 1;
 	if (crop_x + crop_width >= image.cols) crop_width = image.cols - crop_x - 1;
 	if (crop_y < 1) crop_y = 1;
 	if (crop_y + crop_height >= image.rows) crop_height = image.rows - crop_y - 1;
 	// Our region of interest
 	Rect cropRect(crop_x, crop_y, crop_width, crop_height);
-	cout << crop_x << endl;
-	cout << crop_y << endl;
-	cout << qr_sideLength << endl;
 	// Crop the part we want
-	Mat cropped = image(cropRect);
+	crop = image(cropRect);
+}
 
+int main( int argc, char** argv )
+{
+    if( argc != 2)
+    {
+     cout <<" Usage: display_image ImageToLoadAndDisplay" << endl;
+     return -1;
+    }
 
-	// Let's sharpen the image
-	/*Mat kern = (Mat_<char>(3, 3) << 0, -1,  0,
-								   -1,  5, -1,
-								    0, -1,  0);
-	filter2D(image, enhancedimg, image.depth(), kern);*/
+    Mat image;
+    image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
+	Mat outImg = image;
+
+    if(! image.data )                              // Check for invalid input
+    {
+        cout <<  "Could not open or find the image" << std::endl ;
+        return -1;
+    }
+
+	// TODO: put these all into seperate functions
+	
+	// Find where each QR code is located and do a crop of that
+	// Start with creating a binary to find the black parts
+	Mat threshold;
+	thresholdMorph(image, threshold);
+	
+	// find the x and y coordinates
+	int qr_x, qr_y, qr_sideLength;
+	findObjects(qr_x, qr_y, qr_sideLength, threshold);
+
+	// Crop the image to a general area around the located code
+	Mat cropped;
+	cropAroundObject(qr_x, qr_y, qr_sideLength, image, cropped);
 
 	// Grayscale copy of the cropped image
 	Mat grayImg;
@@ -160,9 +183,8 @@ int main( int argc, char** argv )
     imshow( "Test", outImg );                   // Show our image inside it.
 	imshow( "Threshold", threshold);
 	imshow( "Cropped" , cropped);
-	imshow( "Enhanced", enhancedHSV);
 
-    waitKey(0);                          // Wait for a keystroke in the window
+    while(waitKey(0) != 27);         // Wait for escape key 
 
 	// Clean up
 	img.set_data(NULL, 0);
