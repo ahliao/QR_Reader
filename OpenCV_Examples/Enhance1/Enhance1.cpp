@@ -165,7 +165,6 @@ int main( int argc, char** argv )
 		cout << "decoded " << symbol->get_type_name()
 			 << " symbol \"" << symbol->get_data() << '"' << endl;
 
-
 		vector<Point> vp;
 		int s = symbol->get_location_size();  
 		for(int i=0;i<s;i++){  
