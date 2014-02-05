@@ -146,31 +146,30 @@ void trackFilteredObject(int &x, int &y, Mat threshold, Mat &cameraFeed){
 		int numObjects = hierarchy.size();
         //if number of objects greater than MAX_NUM_OBJECTS we have a noisy filter
         if(numObjects<MAX_NUM_OBJECTS){
-			for (int index = 0; index >= 0; index = hierarchy[index][0]) {
+	for (int index = 0; index >= 0; index = hierarchy[index][0]) {
+	Moments moment = moments((cv::Mat)contours[index]);
+	double area = moment.m00;
 
-				Moments moment = moments((cv::Mat)contours[index]);
-				double area = moment.m00;
-
-				//if the area is less than 20 px by 20px then it is probably just noise
-				//if the area is the same as the 3/2 of the image size, probably just a bad filter
-				//we only want the object with the largest area so we safe a reference area each
-				//iteration and compare it to the area in the next iteration.
-                if(area>MIN_OBJECT_AREA && area<MAX_OBJECT_AREA && area>refArea){
-					x = moment.m10/area;
-					y = moment.m01/area;
-					objectFound = true;
-					refArea = area;
-				}else objectFound = false;
+	//if the area is less than 20 px by 20px then it is probably just noise
+	//if the area is the same as the 3/2 of the image size, probably just a bad filter
+	//we only want the object with the largest area so we safe a reference area each
+	//iteration and compare it to the area in the next iteration.
+        if(area>MIN_OBJECT_AREA && area<MAX_OBJECT_AREA && area>refArea){
+	x = moment.m10/area;
+	y = moment.m01/area;
+	objectFound = true;
+	refArea = area;
+	}else objectFound = false;
 
 
-			}
+	}
 			//let user know you found an object
-			if(objectFound ==true){
-				putText(cameraFeed,"Tracking Object",Point(0,50),2,1,Scalar(0,255,0),2);
-				//draw object location on screen
-				drawObject(x,y,cameraFeed);}
+	if(objectFound ==true){
+	putText(cameraFeed,"Tracking Object",Point(0,50),2,1,Scalar(0,255,0),2);
+	//draw object location on screen
+	drawObject(x,y,cameraFeed);}
 
-		}else putText(cameraFeed,"TOO MUCH NOISE! ADJUST FILTER",Point(0,50),1,2,Scalar(0,0,255),2);
+	}else putText(cameraFeed,"TOO MUCH NOISE! ADJUST FILTER",Point(0,50),1,2,Scalar(0,0,255),2);
 	}
 }
 int main(int argc, char* argv[])
