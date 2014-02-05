@@ -18,8 +18,7 @@ int main( int argc, char** argv )
 
     Mat image;
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
-	Mat outimg = image;
-	//cvtColor(image, outimg, CV_GRAY2RGB);
+	Mat outImg = image;
 
     if(! image.data )                              // Check for invalid input
     {
@@ -54,7 +53,7 @@ int main( int argc, char** argv )
 	// find the moment
 	Mat temp;
 	threshold.copyTo(temp);
-	int qr_x, qr_y, qr_width, qr_height;
+	int qr_x, qr_y, qr_sideLength;
 	double area;
 
 	// needed for the findContours()
@@ -86,29 +85,51 @@ int main( int argc, char** argv )
 				cout << "Found at (" << qr_x << ", " << qr_y << ")" << endl;
 				cout << "Area: " << refArea << endl;
 				// Saying that area/5 is about the width atm
-				cout << "Width: " << refArea/5 << endl;
+				qr_sideLength = refArea / 5;
+				cout << "Side Length: " << qr_sideLength << endl;
 			} else cout << "not found" << endl;
 		}
 	}
 
 	// Crop the image to a general area around the located code
-
+	// Do some checking of our cropping rect
+	// TODO: add check to make sure we actually found the code
+	int crop_x, crop_y, crop_width, crop_height;
+	crop_x = qr_x - qr_sideLength / 2;
+	crop_y = qr_y - qr_sideLength / 2;
+	crop_width = qr_sideLength;
+	crop_height = qr_sideLength;
+	if (crop_x < 1) crop_x = 1;
+	if (crop_x + crop_width >= image.cols) crop_width = image.cols - crop_x - 1;
+	if (crop_y < 1) crop_y = 1;
+	if (crop_y + crop_height >= image.rows) crop_height = image.rows - crop_y - 1;
+	// Our region of interest
+	Rect cropRect(crop_x, crop_y, crop_width, crop_height);
+	cout << crop_x << endl;
+	cout << crop_y << endl;
+	cout << qr_sideLength << endl;
+	// Crop the part we want
+	Mat cropped = image(cropRect);
 
 
 	// Let's sharpen the image
-	Mat kern = (Mat_<char>(3, 3) << 0, -1,  0,
+	/*Mat kern = (Mat_<char>(3, 3) << 0, -1,  0,
 								   -1,  5, -1,
 								    0, -1,  0);
-	filter2D(image, enhancedimg, image.depth(), kern);
+	filter2D(image, enhancedimg, image.depth(), kern);*/
 
-	int width = image.cols;
-	int height = image.rows;
-	uchar *raw = (uchar *)image.data;
+	// Grayscale copy of the cropped image
+	Mat grayImg;
+	cvtColor(cropped, grayImg, CV_RGB2GRAY);
+
+	int width = grayImg.cols;
+	int height = grayImg.rows;
+	uchar *raw = (uchar *)grayImg.data;
 
 	Image img(width, height, "Y800", raw, width * height);
 
 	zbar::ImageScanner scanner;
-	scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
+	scanner.set_config(ZBAR_QRCODE, ZBAR_CFG_ENABLE, 1);
 
 	int n = scanner.scan(img);
 	cout << "n = " << n << endl;
@@ -131,13 +152,14 @@ int main( int argc, char** argv )
 		Point2f pts[4];  
 		r.points(pts);  
 		for(int i=0;i<4;i++){  
-			line(outimg,pts[i],pts[(i+1)%4],Scalar(255,255,0),2);  
+			line(outImg,pts[i],pts[(i+1)%4],Scalar(255,255,0),2);  
 		}  
 		cout<<"Angle: "<<r.angle<<endl;  
 	}
 
-    imshow( "Test", outimg );                   // Show our image inside it.
+    imshow( "Test", outImg );                   // Show our image inside it.
 	imshow( "Threshold", threshold);
+	imshow( "Cropped" , cropped);
 	imshow( "Enhanced", enhancedHSV);
 
     waitKey(0);                          // Wait for a keystroke in the window
