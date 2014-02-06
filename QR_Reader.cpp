@@ -9,6 +9,7 @@
 // Include the libraries needed by OpenCV and file reading
 #include <iostream>
 #include <string>
+#include <cmath>
 #include <highgui.h>
 #include <cv.h>
 #include <zbar.h>
@@ -19,8 +20,8 @@ using namespace zbar;
 using namespace std;
 
 // The capture dimensions
-const int FRAME_WIDTH  = 640;
-const int FRAME_HEIGHT = 480;
+const int FRAME_WIDTH  = 1000;
+const int FRAME_HEIGHT = 1000;
 
 // Window names
 const std::string windowName = "Camera Feed";
@@ -49,6 +50,7 @@ void thresholdMorph(Mat &inputImg, Mat &threshold)
 	cvtColor(inputImg, HSV, CV_RGB2HSV);
 	// TODO: Make the range const so easier to change
 	inRange(HSV, Scalar(41, 49, 0), Scalar(56, 85, 63), threshold);
+	//inRange(HSV, Scalar(29, 0, 97), Scalar(180, 256, 256), threshold);
 
 	// Get rid of noise
 	Mat erodeElement = getStructuringElement( MORPH_RECT, Size(1,1));
@@ -88,7 +90,7 @@ void findObjects(int &x, int &y, int &length, const Mat &threshold)
 				area = moment.m00;
 	
 				// We need to tune these
-				if (area > 10 && area < 800 && area > refArea) {
+				if (area > 10 && area < 600 && area > refArea) {
 					x = moment.m10/area;
 					y = moment.m01/area;
 					objectFound = true;
@@ -98,8 +100,9 @@ void findObjects(int &x, int &y, int &length, const Mat &threshold)
 			if (objectFound == true) {
 				cout << "Found at (" << x << ", " << y << ")" << endl;
 				cout << "Area: " << refArea << endl;
-				length = refArea;
-				cout << "Side Length: " << length << endl;
+				length = sqrt(area);
+				//cout << "Side Length: " << length << endl;
+				//cout << "Distance: " << length * 23.5 << endl;
 			} else cout << "not found" << endl;
 		}
 	}
@@ -170,7 +173,7 @@ int main(int argc, char* argv[])
 		cvtColor(cameraFeed, test, CV_RGB2GRAY);
 
 		// Get the binary image
-		/*thresholdMorph(cameraFeed, threshold);
+		thresholdMorph(cameraFeed, threshold);
 
 		// Find the location of the QR codes
 		int qr_x, qr_y, qr_sideLength;
@@ -186,14 +189,14 @@ int main(int argc, char* argv[])
 		// erode away any small noise
 		//erode(cropped, cropped, erodeElement);
 		//filter2D(cropped, cropped, cameraFeed.depth(), kern );
-		//inRange(cropped, 90, 255, cropped);*/
+		//inRange(cropped, 90, 255, cropped);
 
-		filter2D(test, test, cameraFeed.depth(), kern );
-		inRange(test, 90, 255, test);
+		//filter2D(test, test, cameraFeed.depth(), kern );
+		//inRange(test, 90, 255, test);
 		// Extract data from the Mat
-		/*width = cropped.cols;
+		width = cropped.cols;
 		height = cropped.rows;
-		raw = (uchar *) cropped.data;*/
+		raw = (uchar *) cropped.data;
 
 		width = test.cols;
 		height = test.rows;
@@ -225,18 +228,18 @@ int main(int argc, char* argv[])
 				cv::line(cameraFeed, pts[i], pts[(i+1)%4], 
 						cv::Scalar(255, 255, 0), 5);
 			}
-			
 		}
 		t = ((double) getTickCount() - t) / getTickFrequency();
 		cout << "Time: " << t << endl;
 
 		//imshow("Threshold", threshold);
-		//imshow("Cropped", cropped);
-		//imshow("BLAH", cameraFeed);
-		imshow("Test", test);
+		imshow("Cropped", cropped);
+		imshow("Camera", cameraFeed);
+		//imshow("Test", test);
 
 		// Delay so screen can refresh
-		if ((char) waitKey(0) == 27) break;
+		waitKey(40);
+		//if ((char) waitKey(0) == 27) break;
 	}
 
 	cvDestroyAllWindows();
