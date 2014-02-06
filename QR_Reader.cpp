@@ -21,6 +21,10 @@ using namespace std;
 const int FRAME_WIDTH  = 800;
 const int FRAME_HEIGHT = 600;
 
+// Linear variables for the qr_length to inches (distance)
+const double DISTANCE_M = -0.15;
+const int DISTANCE_B = 85;
+
 // Window names
 const string windowName = "Camera Feed";
 
@@ -88,10 +92,11 @@ int main(int argc, char* argv[])
 			}
 			
 			// Get the distance from the code to the camera
-			double distance = sqrt(abs(pts[0].x * pts[0].x - pts[1].x * pts[1].x) +
+			double length = sqrt(abs(pts[0].x * pts[0].x - pts[1].x * pts[1].x) +
 					abs(pts[0].y * pts[0].y - pts[1].y * pts[1].y));
-			cout << "Length: " << distance << endl;
-			cout << "Distance: " << distance * -0.15 + 85.5 << endl;
+			double distance = length * DISTANCE_M + DISTANCE_B;
+			cout << "Length: " << length << endl;
+			cout << "Distance: " << distance << endl;
 		}
 
 		imshow(windowName, cameraFeed);
