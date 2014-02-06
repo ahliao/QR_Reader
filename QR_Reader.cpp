@@ -13,27 +13,27 @@
 #include <cv.h>
 #include <zbar.h>
 
+using namespace cv;
+using namespace zbar;
+using namespace std;
+
 // The capture dimensions
-const int FRAME_WIDTH  = 640;
-const int FRAME_HEIGHT = 480;
+const int FRAME_WIDTH  = 800;
+const int FRAME_HEIGHT = 600;
 
 // Window names
-const std::string windowName = "Camera Feed";
+const string windowName = "Camera Feed";
 
 int main(int argc, char* argv[])
 {
 	// Matrix for frames from the camera
-	cv::Mat cameraFeed;
-	// Matrix storage for the HSV image
-	cv::Mat HSV;
-	// Matrix storage for the binary threshold image
-	cv::Mat threshold;
+	Mat cameraFeed;
 
 	// Matric for the window output
-	cv::Mat outputimg;
+	Mat outputimg;
 
 	// Video capture object to get the camera feed
-	cv::VideoCapture capture;
+	VideoCapture capture;
 	
 	// Open the capture object (0 = webcam)
 	capture.open(0);
@@ -52,48 +52,54 @@ int main(int argc, char* argv[])
 	{
 		// store image to our matrix
 		capture.read(cameraFeed);
-		cv::cvtColor(cameraFeed, outputimg, CV_RGB2GRAY);
+		cvtColor(cameraFeed, outputimg, CV_RGB2GRAY);
 
 		// Extract data from the Mat
 		width = outputimg.cols;
 		height = outputimg.rows;
 		raw = (uchar *) outputimg.data;
 
-		zbar::Image img(width, height, "Y800", raw, width * height);
-		zbar::ImageScanner scanner;
-		scanner.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
+		Image img(width, height, "Y800", raw, width * height);
+		ImageScanner scanner;
+		scanner.set_config(ZBAR_QRCODE, ZBAR_CFG_ENABLE, 1);
 
 		int n = scanner.scan(img);
-		std::cout << "num of codes = " << n << std::endl;
-		std::cout << "width = " << width << std::endl;
+		cout << "num of codes = " << n << endl;
+		cout << "width = " << width << endl;
 
-		for (zbar::Image::SymbolIterator symbol = img.symbol_begin();
+		for (Image::SymbolIterator symbol = img.symbol_begin();
 				symbol != img.symbol_end();
 				++symbol) {
-			std::cout << "decoded " << symbol->get_type_name()
-				 << " symbol \"" << symbol->get_data() << '"' << std::endl;
+			cout << "decoded " << symbol->get_type_name()
+				 << " symbol \"" << symbol->get_data() << '"' << endl;
 
-			std::vector<cv::Point> vp;
+			vector<Point> vp;
 			int s = symbol->get_location_size();
 			for (int i = 0; i < s; ++i) {
-				vp.push_back(cv::Point(symbol->get_location_x(i),
+				vp.push_back(Point(symbol->get_location_x(i),
 							symbol->get_location_y(i)));
 			}
-			cv::RotatedRect r = minAreaRect(vp);
-			cv::Point2f pts[4];
+			RotatedRect r = minAreaRect(vp);
+			Point2f pts[4];
 			r.points(pts);
 			for (int i = 0; i < 4; ++i) {
-				cv::line(cameraFeed, pts[i], pts[(i+1)%4], 
-						cv::Scalar(255, 255, 0), 5);
+				line(cameraFeed, pts[i], pts[(i+1)%4], 
+						Scalar(255, 255, 0), 5);
 			}
 			
+			// Get the distance from the code to the camera
+			double distance = sqrt(abs(pts[0].x * pts[0].x - pts[1].x * pts[1].x) +
+					abs(pts[0].y * pts[0].y - pts[1].y * pts[1].y));
+			cout << "Length: " << distance << endl;
+			cout << "Distance: " << distance * -0.15 + 85.5 << endl;
 		}
 
-		cv::imshow(windowName, cameraFeed);
+		imshow(windowName, cameraFeed);
 
 		// Delay so screen can refresh
-		if ((char) cv::waitKey(40) == 27) break;
+		if ((char) waitKey(40) == 27) break;
 	}
+	// TODO: release the capture
 
 	cvDestroyAllWindows();
 
