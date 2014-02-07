@@ -18,8 +18,8 @@ using namespace zbar;
 using namespace std;
 
 // The capture dimensions
-const int FRAME_WIDTH  = 800;
-const int FRAME_HEIGHT = 600;
+const int FRAME_WIDTH  = 640;
+const int FRAME_HEIGHT = 640;
 
 // Linear variables for the qr_length to inches (distance)
 const double DISTANCE_M = -0.15;
@@ -51,9 +51,19 @@ int main(int argc, char* argv[])
 	int height = 0;
 	uchar *raw = 0;
 
+	// Data from the QR code and its position/angle
+	int qr_length = 0;
+	double qr_distance = 0;
+	double qr_angle = 0;
+
+	// DEBUG Timing Test
+	double debug_t = 0;
+
 	// Infinite loop where our scanning is down on each camera frame
 	while (1) 
 	{
+		debug_t = (double) getTickCount();
+
 		// store image to our matrix
 		capture.read(cameraFeed);
 		cvtColor(cameraFeed, outputimg, CV_RGB2GRAY);
@@ -74,6 +84,9 @@ int main(int argc, char* argv[])
 		for (Image::SymbolIterator symbol = img.symbol_begin();
 				symbol != img.symbol_end();
 				++symbol) {
+
+			// TODO: Handle multiple symbols
+
 			cout << "decoded " << symbol->get_type_name()
 				 << " symbol \"" << symbol->get_data() << '"' << endl;
 
@@ -92,11 +105,18 @@ int main(int argc, char* argv[])
 			}
 			
 			// Get the distance from the code to the camera
-			double length = sqrt(abs(pts[0].x * pts[0].x - pts[1].x * pts[1].x) +
+			qr_length = sqrt(abs(pts[0].x * pts[0].x - pts[1].x * pts[1].x) +
 					abs(pts[0].y * pts[0].y - pts[1].y * pts[1].y));
-			double distance = length * DISTANCE_M + DISTANCE_B;
-			cout << "Length: " << length << endl;
-			cout << "Distance: " << distance << endl;
+			qr_distance = qr_length * DISTANCE_M + DISTANCE_B;
+			cout << "Length: " << qr_length << endl;
+			cout << "Distance: " << qr_distance << endl;
+
+			// Find the relative location
+			
+
+			// Find the seconds it took to process
+			debug_t = ((double) getTickCount() - debug_t) / getTickFrequency();
+			cout << "Process time (s): " << debug_t << endl;
 		}
 
 		imshow(windowName, cameraFeed);
@@ -104,9 +124,10 @@ int main(int argc, char* argv[])
 		// Delay so screen can refresh
 		if ((char) waitKey(40) == 27) break;
 	}
-	// TODO: release the capture
 
+	// Release the resources
 	cvDestroyAllWindows();
+	capture.release();
 
 	return 0;
 }
