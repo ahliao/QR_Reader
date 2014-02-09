@@ -10,4 +10,4 @@ $(PROG):$(SRCS)
 	$(CC) $(CFLAGS) -o $(PROG) $(SRCS) -lzbar $(LIBS)
 
 test: $(PROG)
-	./$(PROG) qrcode1.jpg
+	./$(PROG) angle_38.jpg
