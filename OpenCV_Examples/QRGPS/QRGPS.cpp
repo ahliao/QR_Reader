@@ -83,33 +83,22 @@ int main( int argc, char** argv )
 		cout << "Distance: " << qr_distance << endl;
 
 		// Get the angle of the circled rectangle
-		if (vp[0].x < vp[2].x) {
-			qr_angle = -r.angle;
-			if (vp[0].y > vp[2].y) qr_angle += 90;
-			else qr_angle += 270;
-		} 
-		else {
-			qr_angle = -r.angle + 90;
-			if (vp[0].x > vp[2].x) qr_angle += 90;
+		qr_angle = -r.angle;
+		if (vp[0].x > vp[3].x && vp[0].y > vp[3].y) qr_angle += 90;
+		else if (vp[0].x > vp[3].x && vp[0].y < vp[3].y) qr_angle += 180;
+		else if (vp[0].x < vp[3].x && vp[0].y < vp[3].y) qr_angle += 270;
+		else if (vp[0].x == vp[1].x && vp[0].y == vp[3].y) {
+		   	if (vp[0].x < vp[3].x && vp[0].y < vp[1].y)
+			   	qr_angle = 0;
+			else qr_angle = 180;
+		}
+		else if (vp[0].x == vp[3].x && vp[0].y == vp[1].y) {
+		   	if (vp[0].x < vp[1].x && vp[0].y > vp[3].y) 
+				qr_angle = 90;
+			else qr_angle = 270;
 		}
 		cout<< "Angle: " << qr_angle <<endl;  
 		cout << "rAngle: " << r.angle<< endl;
-
-		// Find the real angle
-		// Check the four corners for lines
-		if ((int)(image.at<uchar>(pts[0].x - 1, pts[0].y - 1)) <= 50) 
-			cout << "Bottom-right is a hit" << endl;
-		if ((int)(image.at<uchar>(pts[1].x + 3, pts[1].y - 2)) <= 50) 
-			cout << "Bottom-left is a hit" << endl;
-		if ((int)(image.at<uchar>(pts[2].x + 1, pts[2].y + 1)) <= 50) 
-			cout << "Top-left is a hit" << endl;
-		if ((int)(image.at<uchar>(pts[3].x - 1, pts[3].y + 1)) <= 50) 
-			cout << "Top-right is a hit" << endl;
-
-		cout << "Points of the code" << endl;
-		for (int i = 0; i < 4; ++i) {
-			cout << pts[i] << endl;
-		}
 
 		// Find the relative location
 		// Defining "North" to be at 0 degrees

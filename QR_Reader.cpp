@@ -112,7 +112,36 @@ int main(int argc, char* argv[])
 			cout << "Distance: " << qr_distance << endl;
 
 			// Find the relative location
-			
+			// Get the angle of the circled rectangle
+			qr_angle = -r.angle;
+			if (vp[0].x > vp[3].x && vp[0].y > vp[3].y) qr_angle += 90;
+			else if (vp[0].x > vp[3].x && vp[0].y < vp[3].y) qr_angle += 180;
+			else if (vp[0].x < vp[3].x && vp[0].y < vp[3].y) qr_angle += 270;
+			else if (vp[0].x == vp[1].x && vp[0].y == vp[3].y) {
+				if (vp[0].x < vp[3].x && vp[0].y < vp[1].y)
+					qr_angle = 0;
+				else qr_angle = 180;
+				cout << "Blah1" << endl;
+			}
+			else if (vp[0].x == vp[3].x && vp[0].y == vp[1].y) {
+				if (vp[0].x < vp[1].x && vp[0].y > vp[3].y) 
+					qr_angle = 90;
+				else qr_angle = 270;
+				cout << "Blah2" << endl;
+			}
+			cout<< "Angle: " << qr_angle <<endl;  
+			// There is a bug at the 90n angles
+
+			//Draw a line on the angle
+			qr_angle = qr_angle * 3.1415 / 180;
+			Point mid((pts[0].x + pts[2].x) / 2, (pts[0].y + pts[2].y)/2);
+			Point p2(mid.x + 25*cos(qr_angle), mid.y - 25*sin(qr_angle));
+			line(cameraFeed,mid, p2, Scalar(0,255,0),2);
+
+			// Get the relative location based on the data of the QR code
+			// QR format: x y
+			// x and y are seperated by a single space
+			// Check if the QR is in the right format
 
 			// Find the seconds it took to process
 			debug_t = ((double) getTickCount() - debug_t) / getTickFrequency();
