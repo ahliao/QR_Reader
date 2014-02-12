@@ -136,12 +136,34 @@ int main(int argc, char* argv[])
 			qr_angle = qr_angle * 3.1415 / 180;
 			Point mid((pts[0].x + pts[2].x) / 2, (pts[0].y + pts[2].y)/2);
 			Point p2(mid.x + 25*cos(qr_angle), mid.y - 25*sin(qr_angle));
-			line(cameraFeed,mid, p2, Scalar(0,255,0),2);
+			line(cameraFeed,mid, p2, Scalar(0,255,0),5);
 
 			// Get the relative location based on the data of the QR code
 			// QR format: x y
 			// x and y are seperated by a single space
 			// Check if the QR is in the right format
+
+			// Assume the QR reads 0 0 for now
+			int x = FRAME_WIDTH / 2;
+			int y = FRAME_HEIGHT / 2;
+			line(cameraFeed,mid, Point(x,y), Scalar(255,0,0),5);
+
+			// Relative position (in pixel)
+			double dis2Mid = sqrt((mid.x - x) * (mid.x - x) + 
+					(mid.y - y) * (mid.y - y));
+			cout << "Distance to Quad: " << dis2Mid << endl;
+			
+			double theta1 = atan2(y - mid.y, x - mid.x) * 180/3.1415;
+			double qr_angle_deg = qr_angle * 180/3.1415;
+			double theta2 = 90 - theta1 - qr_angle_deg;
+			cout << "qr_angle: " << qr_angle_deg << endl;
+			cout << "Theta1: " << theta1 << endl;
+			cout << "Theta2: " << theta2 << endl;
+			double theta2_rad = theta2 * 3.1415 / 180;
+			double x_d = dis2Mid * sin(theta2_rad);
+			double y_d = dis2Mid * cos(theta2_rad);
+			cout << "X dis: " << x_d << endl;
+			cout << "Y dis: " << y_d << endl;
 
 			// Find the seconds it took to process
 			debug_t = ((double) getTickCount() - debug_t) / getTickFrequency();
