@@ -8,6 +8,7 @@
 
 // Include the libraries needed by OpenCV and file reading
 #include <iostream>
+#include <cstdio>
 #include <string>
 #include <highgui.h>
 #include <cv.h>
@@ -18,12 +19,19 @@ using namespace zbar;
 using namespace std;
 
 // The capture dimensions
-const int FRAME_WIDTH  = 640;
+const int FRAME_WIDTH  = 800;
 const int FRAME_HEIGHT = 640;
+
+// Where the camera origin is (quadcopter view)
+const int MID_X = 400;
+const int MID_Y = 320;
 
 // Linear variables for the qr_length to inches (distance)
 const double DISTANCE_M = -0.15;
 const int DISTANCE_B = 85;
+
+// PI for the trig calculations
+const double MATH_PI = 3.1415942854;
 
 // Window names
 const string windowName = "Camera Feed";
@@ -52,9 +60,16 @@ int main(int argc, char* argv[])
 	uchar *raw = 0;
 
 	// Data from the QR code and its position/angle
-	int qr_length = 0;
-	double qr_distance = 0;
-	double qr_angle = 0;
+	int qr_length = 0;		// The length of the code in pixels
+	double qr_distance = 0; // How far the qr code is (altitude)
+	double qr_angle = 0;	// Angle of the code from the right x-axis
+	double qr_angle_deg = 0;// Same as above but in degrees
+	double dis2Mid = 0;		// Distance from the camera middle to code
+	double theta1 = 0;		// the arctan of the y' and x' axes
+	double theta2 = 0;		// the angle between the two axes
+	double theta2_deg = 0;	// theta2 in radians
+	double x_d = 0;
+	double y_d = 0;
 
 	// DEBUG Timing Test
 	double debug_t = 0;
@@ -79,7 +94,6 @@ int main(int argc, char* argv[])
 
 		int n = scanner.scan(img);
 		cout << "num of codes = " << n << endl;
-		cout << "width = " << width << endl;
 
 		for (Image::SymbolIterator symbol = img.symbol_begin();
 				symbol != img.symbol_end();
@@ -89,6 +103,11 @@ int main(int argc, char* argv[])
 
 			cout << "decoded " << symbol->get_type_name()
 				 << " symbol \"" << symbol->get_data() << '"' << endl;
+
+			int qr_x, qr_y;
+			sscanf(symbol->get_data().c_str(), "%d %d", &qr_x, &qr_y);
+			cout << "QR_X: " << qr_x << endl;
+			cout << "QR_Y: " << qr_y << endl;
 
 			vector<Point> vp;
 			int s = symbol->get_location_size();
@@ -144,24 +163,56 @@ int main(int argc, char* argv[])
 			// Check if the QR is in the right format
 
 			// Assume the QR reads 0 0 for now
-			int x = FRAME_WIDTH / 2;
-			int y = FRAME_HEIGHT / 2;
-			line(cameraFeed,mid, Point(x,y), Scalar(255,0,0),5);
+			line(cameraFeed,mid, Point(MID_X,MID_Y), Scalar(255,0,0),5);
 
 			// Relative position (in pixel)
-			double dis2Mid = sqrt((mid.x - x) * (mid.x - x) + 
-					(mid.y - y) * (mid.y - y));
+			dis2Mid = sqrt((mid.x - MID_X) * (mid.x - MID_X) + 
+					(mid.y - MID_Y) * (mid.y - MID_Y));
 			cout << "Distance to Quad: " << dis2Mid << endl;
 			
-			double theta1 = atan2(y - mid.y, x - mid.x) * 180/3.1415;
-			double qr_angle_deg = qr_angle * 180/3.1415;
-			double theta2 = 90 - theta1 - qr_angle_deg;
-			cout << "qr_angle: " << qr_angle_deg << endl;
+			theta1 = atan2(MID_Y - mid.y, MID_X - mid.x) * 180 / MATH_PI;
+			qr_angle_deg = qr_angle * 180 / MATH_PI;
+			theta2_deg = 90 - theta1 - qr_angle_deg;
+			theta2 = theta2_deg * MATH_PI / 180;
+			x_d = dis2Mid * sin(theta2);
+			y_d = dis2Mid * cos(theta2);
+
+			// TODO: put this into a function
+			stringstream strstream;
+			strstream << "Attitude: " << qr_distance;
+			string x = strstream.str();
+			strstream.str(string());
+			putText(cameraFeed, x, cvPoint(30,30), 
+					FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 
+					1, CV_AA);
+
+			strstream << "Angle: " << qr_angle_deg;
+			x = strstream.str();
+			strstream.str(string());
+			putText(cameraFeed, x, cvPoint(30,50), 
+					FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 
+					1, CV_AA);
+
+			strstream << "Rel. Pos: " << "(" << x_d << ", " << y_d << ")";
+			x = strstream.str();
+			strstream.str(string());
+			putText(cameraFeed, x, cvPoint(30,70), 
+					FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 
+					1, CV_AA);
+
+			// Display where you are in the grid
+			// TODO: make a GUI for easier visualization
+			double x_ab = x_d + qr_x;
+			double y_ab = y_d + qr_y;
+			strstream << "Abs. Pos: " << "(" << x_ab << ", " << y_ab << ")";
+			x = strstream.str();
+			strstream.str(string());
+			putText(cameraFeed, x, cvPoint(30,90), 
+					FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 
+					1, CV_AA);
+
 			cout << "Theta1: " << theta1 << endl;
 			cout << "Theta2: " << theta2 << endl;
-			double theta2_rad = theta2 * 3.1415 / 180;
-			double x_d = dis2Mid * sin(theta2_rad);
-			double y_d = dis2Mid * cos(theta2_rad);
 			cout << "X dis: " << x_d << endl;
 			cout << "Y dis: " << y_d << endl;
 
@@ -173,7 +224,7 @@ int main(int argc, char* argv[])
 		imshow(windowName, cameraFeed);
 
 		// Delay so screen can refresh
-		if ((char) waitKey(40) == 27) break;
+		if ((char) waitKey(30) == 27) break;
 	}
 
 	// Release the resources
