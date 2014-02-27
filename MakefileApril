@@ -1,0 +1,11 @@
+CC = gcc
+CFLAGS = -Wall -std=gnu99
+SRCS += $(wildcard apriltags/*.c)
+SRCS += QR_Reader_April.c
+PROG = QR_Reader_April
+ 
+OPENCV = `pkg-config opencv --cflags --libs`
+LIBS = $(OPENCV) 
+	 
+$(PROG):$(SRCS)
+	$(CC) $(CFLAGS) -o $(PROG) $(SRCS) $(LIBS)

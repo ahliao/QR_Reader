@@ -11,7 +11,13 @@
 #include <stdio.h>
 #include <highgui.h>
 #include <cv.h>
-#include <zbar.h>
+
+// Include the Libraries for AprilTags
+#include "apriltags/apriltag.h"
+#include "apriltags/image_u8.h"
+#include "apriltags/tag36h11.h"
+#include "apriltags/zarray.h"
+//#include "apriltags/homography.h"
 
 // The capture dimensions
 const int FRAME_WIDTH  = 800;
@@ -41,11 +47,6 @@ typedef struct
 
 void process_QR(IplImage* img, QR_Data * data, IplImage* outimg)
 {
-	// Data extracted from the ZBar Image
-	int width = 0;
-	int height = 0;
-	void *raw = NULL;
-
 	// Data from the QR code and its position/angle
 	int qr_length = 0;		// The length of the code in pixels
 	double qr_distance = 0; // How far the qr code is (altitude)
@@ -62,85 +63,88 @@ void process_QR(IplImage* img, QR_Data * data, IplImage* outimg)
 	int qr_x, qr_y;	// The data from the QR Code
 	char text[80];
 
-	// ZBar Scanner for C
-	zbar_image_scanner_t* scanner = zbar_image_scanner_create();
-	// configure the scanner
-	zbar_image_scanner_set_config(scanner, 0, ZBAR_CFG_ENABLE, 1);
+	// Instantiate a tag family and pass to detector
 
-	// Extract data from the image
-	width = img->width;
-	height = img->height;
-	raw = (void *) img->imageData;
+	april_tag_family_t *tf = tag36h11_create();
+	april_tag_detector_t *td = april_tag_detector_create(tf);
+	td->nthreads = 2;
 
-	// Wrap the image data
-	zbar_image_t *image = zbar_image_create();
-	zbar_image_set_format(image, *(int*)"Y800");
-    zbar_image_set_size(image, width, height);
-    zbar_image_set_data(image, raw, width * height, zbar_image_free_data);
+	// Form an image_u8 with the image
+	image_u8_t *im = image_u8_create_from_rgb3(img->width, img->height, 
+		(uint8_t *)img->imageData, img->widthStep);
+	//image_u8_t *im = image_u8_create_from_pnm("testtag.pnm");
+	zarray_t * detections = april_tag_detector_detect(td, im);
 
-	// Scan the image for QR
-	int n = zbar_scan_image(scanner, image);
+	int i = 0;
+	for (i = 0; i < zarray_size(detections); ++i) {
+		april_tag_detection_t *det;
+		zarray_get(detections, i, &det);
 
-	 /* extract results */
-    const zbar_symbol_t *symbol = zbar_image_first_symbol(image);
-    for(; symbol; symbol = zbar_symbol_next(symbol)) {
-		// Cycle through each symbol found
-        zbar_symbol_type_t typ = zbar_symbol_get_type(symbol);
-        const char *data = zbar_symbol_get_data(symbol);
-        printf("decoded %s symbol \"%s\"\n",
-			zbar_get_symbol_name(typ), data);
+		printf("%i code\n", i);
+		printf("detection %3d: id %4d, hamming %d, goodness %f\n", i,
+				det->id, det->hamming, det->goodness);
 
-		sscanf(data, "%d %d", &qr_x, &qr_y);
-		printf("QR_X: %i\n", qr_x);
-		printf("QR_Y: %i\n", qr_y);
+		//matd_t *M = homography_to_pose(det->H, img->width,
+		//		img->height, det->c[0], det->c[1]);
+		
 
+		// get the four corners
 		// Find the angle between the lines
 		CvMemStorage* storage = cvCreateMemStorage(0);
 		CvSeq* ptseq = cvCreateSeq(CV_SEQ_KIND_GENERIC|CV_32SC2, 
 				sizeof(CvContour), sizeof(CvPoint), storage);
 
 		CvPoint pts[4];
-		int i = 0;
-		for (i = 0; i < 4; ++i) {
-			CvPoint point = cvPoint(zbar_symbol_get_loc_x(symbol,i),
-					zbar_symbol_get_loc_y(symbol,i));
+		double ptnx;
+		double ptny;
+		int a = 0;
+		for (a = 0; a < 4; ++a) {
+		    ptnx = det->p[a][0];
+			ptny = det->p[a][1];
+			printf("%f, %f\n", ptnx, ptny);
+			CvPoint point = cvPoint(ptnx, ptny);
+			pts[a] = point;
+			//cvLine(outimg, point, center,
+			//		CV_RGB(0,0,255), 5, 8,0);
 			cvSeqPush(ptseq, &point);
-			pts[i] = point;
 		}
 		CvBox2D rect = cvMinAreaRect2(ptseq, 0);
-		// Draw the outline rectangle
 
-		for (i = 0; i < 4; ++i) {
-			cvLine(outimg, pts[i], pts[(i+1)%4], 
+		// Draw the outline rectangle
+		for (a = 0; a < 4; ++a) {
+			cvLine(outimg, pts[a], pts[(a+1)%4], 
 					CV_RGB(0, 0, 255), 5, 8, 0);
 		}
 
 		// Get the distance from the code to the camera
-		qr_length = sqrt(abs(pts[0].x * pts[0].x - pts[1].x * pts[1].x) +
-				abs(pts[0].y * pts[0].y - pts[1].y * pts[1].y));
+		qr_length = sqrt((pts[0].x - pts[1].x) * (pts[0].x - pts[1].x) +
+				(pts[0].y - pts[1].y) * (pts[0].y - pts[1].y));
 		qr_distance = qr_length * DISTANCE_M + DISTANCE_B;
 		printf("Length: %i\n", qr_length);
 		printf("Distance: %f\n", qr_distance);
 
-		// Find the relative location
-		// Get the angle of the circled rectangle
+		// Get the angle of the square/rectangle
+		for(int b = 0; b < 4; ++b)
+			printf("%i, %i\n", pts[b].x, pts[b].y);
 		qr_angle = -rect.angle;
-		if (pts[0].x > pts[3].x && pts[0].y > pts[3].y) qr_angle += 90;
-		else if (pts[0].x > pts[3].x && pts[0].y < pts[3].y) qr_angle += 180;
-		else if (pts[0].x < pts[3].x && pts[0].y < pts[3].y) qr_angle += 270;
-		else if (pts[0].x == pts[1].x && pts[0].y == pts[3].y) {
-			if (pts[0].x < pts[3].x && pts[0].y < pts[1].y)
-				qr_angle = 0;
-			else qr_angle = 180;
-		}
-		else if (pts[0].x == pts[3].x && pts[0].y == pts[1].y) {
-			if (pts[0].x < pts[1].x && pts[0].y > pts[3].y) 
-				qr_angle = 90;
-			else qr_angle = 270;
-		}
+		printf("BAngle: %f\n", qr_angle);
+		if (pts[0].x > pts[1].x && pts[0].y > pts[3].y &&
+				pts[0].y > pts[2].y && pts[0].x < pts[3].x) qr_angle += 90;
+		else if (pts[0].x > pts[1].x && pts[0].y < pts[1].y &&
+				pts[0].y > pts[3].y && pts[0].x > pts[2].x) qr_angle += 180;
+		else if (pts[0].x < pts[1].x && pts[0].x > pts[3].x &&
+				pts[0].y < pts[2].y && pts[0].y < pts[3].y) qr_angle += 270;
+		else if (pts[0].x == pts[3].x && pts[0].y == pts[1].y &&
+				pts[0].x < pts[1].x && pts[0].y < pts[3].y) qr_angle = 0;
+		else if (pts[0].x == pts[1].x && pts[0].y == pts[3].y &&
+				pts[0].x < pts[3].x && pts[0].y > pts[1].y) qr_angle = 90;
+		else if (pts[0].x == pts[3].x && pts[0].y == pts[1].y &&
+				pts[0].x > pts[1].x && pts[0].y > pts[3].y) qr_angle = 180;
+		else if (pts[0].x == pts[1].x && pts[0].y == pts[3].y &&
+				pts[0].x > pts[3].x && pts[0].y < pts[1].y) qr_angle = 270;
 		printf("Angle: %f\n", qr_angle);
 
-		//Draw a line on the angle
+		// Draw a line for the angle
 		qr_angle = qr_angle * 3.1415 / 180;
 		CvPoint mid = cvPoint((pts[0].x + pts[2].x) / 2, 
 				(pts[0].y + pts[2].y)/2);
@@ -158,7 +162,7 @@ void process_QR(IplImage* img, QR_Data * data, IplImage* outimg)
 		dis2Mid = sqrt((mid.x - MID_X) * (mid.x - MID_X) + 
 				(mid.y - MID_Y) * (mid.y - MID_Y));
 		printf("Distance to Quad: %f\n", dis2Mid);
-
+		
 		theta1 = atan2(MID_Y - mid.y, MID_X - mid.x) * 180 / MATH_PI;
 		qr_angle_deg = qr_angle * 180 / MATH_PI;
 		theta2_deg = 90 - theta1 - qr_angle_deg; 
@@ -171,16 +175,26 @@ void process_QR(IplImage* img, QR_Data * data, IplImage* outimg)
 		cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 0.5, 0.5, 0, 1, 8);
 		sprintf(text, "Attitude: %f", qr_distance);
 		cvPutText(outimg, text, cvPoint(30,30), 
-				&font, cvScalar(255, 255, 255, 0));
+				&font, cvScalar(0, 5, 55, 0));
 		sprintf(text, "Angle: %f", qr_angle_deg);
-		cvPutText(outimg, text, cvPoint(30,50), 
-				&font, cvScalar(255, 255, 255, 0));
+		cvPutText(outimg, text, cvPoint(30,60), 
+				&font, cvScalar(0, 5, 55, 0));
 		x_ab = x_d + qr_x;
 		y_ab = y_d + qr_y;
 		sprintf(text, "Abs. Pos: (%f, %f)", x_ab, y_ab);
-		cvPutText(outimg, text, cvPoint(30,70), 
-				&font, cvScalar(255, 255, 255, 0));
-    }
+		cvPutText(outimg, text, cvPoint(30,90), 
+				&font, cvScalar(0, 55, 55, 0));
+
+		// TODO: put the data into the QR_Data struct
+
+		april_tag_detection_destroy(det);
+	}
+
+	zarray_destroy(detections);
+
+    april_tag_detector_destroy(td);
+
+    tag36h11_destroy(tf);
 }
 
 int main(int argc, char* argv[])
@@ -191,29 +205,25 @@ int main(int argc, char* argv[])
 	// Infinite loop where our scanning is down on each camera frame
 	while (1) 
 	{
+		//IplImage* frame = cvLoadImage(argv[1], CV_LOAD_IMAGE_COLOR);//cvQueryFrame(capture);
 		IplImage* frame = cvQueryFrame(capture);
 		if (!frame) {
 			fprintf(stderr, "ERROR: Frame is null\n");
-			getchar();
-			break;
+			//getchar();
+			//break;
 		}
 
-		IplImage* outputimg = cvCreateImage(cvGetSize(frame), frame->depth,1);
-		IplImage* test = cvCreateImage(cvGetSize(frame), frame->depth,frame->nChannels);
+		IplImage* inputimg = cvCreateImage(cvGetSize(frame), frame->depth,3);
 
-		double a[9]={-1,20,1,-1,20,1,-1,20,1};
-		CvMat kernel= cvMat(3,3,CV_32FC1,a);
-		cvFilter2D(frame,test,&kernel,cvPoint(-1,-1));
-
-		cvCvtColor(frame, outputimg, CV_RGB2GRAY);
+		cvCvtColor(frame, inputimg, CV_RGB2BGR);
 		QR_Data data;
-		process_QR(outputimg, &data, frame);
+		process_QR(inputimg, &data, frame);
 
 		cvShowImage("Camera", frame);
-		cvShowImage("Sharp", test);
 
 		// Delay so screen can refresh
-		if ((char) cvWaitKey(30) == 27) break;
+		//while (!((char) cvWaitKey(30) == 27));
+		if((char) cvWaitKey(1) == 27) break;
 	}
 
 	// Release the resources
